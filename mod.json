@@ -6,10 +6,10 @@
 		"android": "2.2081",
 		"ios": "2.2081"
 	},
-	"id": "dashdunmire.learner",
+	"id": "learner",
 	"name": "Learner",
-	"version": "v1.0.0",
-	"developer": "dashdunmire",
+	"version": "1.0.0",
+	"developer": "Learner",
 	"description": "Practice levels faster by switching between start positions from in-game.",
 	"settings": {
         "leftSwitch": {

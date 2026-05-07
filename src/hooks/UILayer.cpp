@@ -14,9 +14,20 @@ bool HookUILayer::init(GJBaseGameLayer* baseGame) {
         auto fields = m_fields.self();
         auto mm = ModManager::sharedState();
 
-        fields->m_switcherMenu = CCMenu::create();
-        fields->m_switcherMenu->setPosition(ccp(winSize.width / 2, director->getScreenBottom() + 17.f));
-        fields->m_switcherMenu->setID("menu"_spr);
+	        fields->m_switcherMenu = CCMenu::create();
+	        fields->m_switcherMenu->setPosition(ccp(winSize.width / 2, director->getScreenBottom() + 17.f));
+	        fields->m_switcherMenu->setID("menu"_spr);
+
+	        fields->m_guidedChanceLabel = CCLabelBMFont::create("0%", "bigFont.fnt");
+	        fields->m_guidedChanceLabel->setID("guided-zero-chance-label"_spr);
+	        fields->m_guidedChanceLabel->setAnchorPoint({0.f, 1.f});
+	        fields->m_guidedChanceLabel->setScale(0.35f);
+	        fields->m_guidedChanceLabel->setColor({145, 145, 145});
+	        fields->m_guidedChanceLabel->setOpacity(125);
+	        fields->m_guidedChanceLabel->setPosition({
+	            director->getScreenLeft() + 8.f,
+	            director->getScreenTop() - 8.f
+	        });
 
         fields->m_switcherLabel = CCLabelBMFont::create("0/0", "bigFont.fnt");
         fields->m_switcherLabel->setID("idx-label"_spr);
@@ -65,9 +76,10 @@ bool HookUILayer::init(GJBaseGameLayer* baseGame) {
                 playLayer->updateStartPos(playLayer->m_fields->m_startPosIdx + 1);
             }
         });
-
-        this->addChild(fields->m_switcherMenu);
-    }
+	
+	        this->addChild(fields->m_switcherMenu);
+	        this->addChild(fields->m_guidedChanceLabel, 5);
+	    }
 
     return true;
 }
@@ -77,12 +89,13 @@ void HookUILayer::updateUI() {
     auto fields = m_fields.self();
     auto mm = ModManager::sharedState();
 
-        if(playLayer->m_fields->m_startPosObjects.empty()) {
-            fields->m_switcherMenu->setVisible(false);
-            return;
-        } else {
-            fields->m_switcherMenu->setVisible(true);
-        }
+	        if(playLayer->m_fields->m_startPosObjects.empty()) {
+	            fields->m_switcherMenu->setVisible(false);
+	            fields->m_guidedChanceLabel->setVisible(false);
+	            return;
+	        } else {
+	            fields->m_switcherMenu->setVisible(true);
+	        }
 
     fields->m_switcherLabel->setString(fmt::format("{}/{}", playLayer->m_fields->m_startPosIdx, playLayer->m_fields->m_startPosObjects.size()).c_str());
     fields->m_switcherLabel->limitLabelWidth(40, 0.6f, 0);
@@ -94,7 +107,25 @@ void HookUILayer::updateUI() {
     } else {
         auto action = CCSequence::create(CCEaseInOut::create(CCFadeTo::create(0.3f, 255), 2), CCDelayTime::create(0.5), CCEaseInOut::create(CCFadeTo::create(0.5f, mm->m_opacity), 2), nullptr);
         action->setTag(676767677);
-        fields->m_switcherMenu->runAction(action);
+	        fields->m_switcherMenu->runAction(action);
+	    }
+
+	    updateGuidedChanceLabel();
+	
+	}
+
+void HookUILayer::updateGuidedChanceLabel() {
+    auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get());
+    auto fields = m_fields.self();
+    auto mm = ModManager::sharedState();
+    if (!playLayer || !fields->m_guidedChanceLabel || playLayer->m_fields->m_startPosObjects.empty() || !mm->m_guidedMode) {
+        if (fields->m_guidedChanceLabel) {
+            fields->m_guidedChanceLabel->setVisible(false);
+        }
+        return;
     }
 
+    fields->m_guidedChanceLabel->setVisible(true);
+    fields->m_guidedChanceLabel->setString(fmt::format("{}%", playLayer->getGuidedZeroChancePercent()).c_str());
+    fields->m_guidedChanceLabel->limitLabelWidth(55.f, 0.35f, 0.1f);
 }
