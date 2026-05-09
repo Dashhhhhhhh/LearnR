@@ -19,7 +19,6 @@ struct HookPlayLayer : geode::Modify<HookPlayLayer, PlayLayer> {
         int m_activeRunStartIdx = 0;
         int m_guidedChainLength = 1;
         int m_guidedWindowStart = -1;
-        int m_musicSyncFramesRemaining = 0;
         bool m_activeRunCleared = false;
         bool m_activeRunAttemptCounted = false;
         bool m_activeRunGuidedQueued = false;
