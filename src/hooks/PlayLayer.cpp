@@ -99,7 +99,7 @@ void HookPlayLayer::syncLearnerStartPosMusic() {
         settings->m_targetChannel,
         true,
         0
-    ) + settings->m_songOffset;
+    ) + settings->m_songOffset + static_cast<float>(m_attemptTime);
     auto songTimeMS = static_cast<unsigned int>(std::max(0.f, songTime) * 1000.f);
     FMODAudioEngine::get()->setMusicTimeMS(songTimeMS, true, 0);
 }
@@ -114,6 +114,7 @@ void HookPlayLayer::queueLearnerStartPosMusicSync() {
     }
 
     syncLearnerStartPosMusic();
+    m_fields->m_musicSyncFramesRemaining = 45;
     unschedule(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed));
     scheduleOnce(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed), 0.f);
 }
@@ -147,6 +148,7 @@ void HookPlayLayer::resetLevel() {
         startMusic();
         queueLearnerStartPosMusicSync();
     } else {
+        m_fields->m_musicSyncFramesRemaining = 0;
         unschedule(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed));
     }
     beginLearnerRun();
@@ -154,6 +156,10 @@ void HookPlayLayer::resetLevel() {
 
 void HookPlayLayer::updateProgressbar() {
     PlayLayer::updateProgressbar();
+    if (m_fields->m_musicSyncFramesRemaining > 0) {
+        syncLearnerStartPosMusic();
+        m_fields->m_musicSyncFramesRemaining--;
+    }
     recordLearnerProgress();
     updateGuidedProgress();
     static_cast<HookUILayer*>(m_uiLayer)->updateGuidedChanceLabel();
