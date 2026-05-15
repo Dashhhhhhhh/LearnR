@@ -8,9 +8,16 @@
 	},
 	"id": "learner",
 	"name": "Learner",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"developer": "Learner",
-	"description": "Practice levels faster by switching between start positions from in-game.",
+	"description": "Structured Geometry Dash practice with guided startpos routing and smart state syncing.",
+	"links": {
+		"source": "https://github.com/Dashhhhhhhh/learner"
+	},
+	"issues": {
+		"info": "Report bugs on GitHub Issues.",
+		"url": "https://github.com/Dashhhhhhhh/learner/issues"
+	},
 	"settings": {
         "leftSwitch": {
             "type": "keybind",

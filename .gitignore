@@ -43,6 +43,7 @@
 **/build
 # Ignore platform specific build folders
 build-*/
+dist/
 
 # Workspace files are user-specific
 *.sublime-workspace
