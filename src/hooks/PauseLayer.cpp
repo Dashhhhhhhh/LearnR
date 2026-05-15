@@ -10,7 +10,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 
 using namespace geode::prelude;
 
@@ -20,8 +19,7 @@ namespace {
         geode::Ref<ScrollLayer> m_statsScroll = nullptr;
         geode::Ref<CCMenuItemSpriteExtra> m_guidedBtn = nullptr;
         geode::Ref<CCMenuItemSpriteExtra> m_viewBtn = nullptr;
-        geode::Ref<CCMenuItemSpriteExtra> m_clearBtn = nullptr;
-        geode::Ref<CCMenuItemSpriteExtra> m_resetGuidedBtn = nullptr;
+        geode::Ref<CCMenuItemSpriteExtra> m_smartStartposBtn = nullptr;
         geode::Ref<CCMenuItemSpriteExtra> m_switcherToggleBtn = nullptr;
         geode::Ref<CCMenuItemSpriteExtra> m_percentToggleBtn = nullptr;
         geode::Ref<CCNode> m_settingsControls = nullptr;
@@ -35,29 +33,23 @@ namespace {
                 return false;
             }
 
-            this->setTitle("Learner Stats");
+            this->setTitle("Learner");
             buildStatsList();
 
             auto guidedSpr = createGuidedButtonSprite();
             m_guidedBtn = CCMenuItemSpriteExtra::create(guidedSpr, this, menu_selector(LearnerStatsPopup::onToggleGuided));
             m_guidedBtn->setID("guided-mode-button"_spr);
-            m_buttonMenu->addChildAtPosition(m_guidedBtn, Anchor::Bottom, ccp(-105.f, 20.f));
+            m_buttonMenu->addChildAtPosition(m_guidedBtn, Anchor::Bottom, ccp(-110.f, 20.f));
 
             auto viewSpr = createViewButtonSprite();
             m_viewBtn = CCMenuItemSpriteExtra::create(viewSpr, this, menu_selector(LearnerStatsPopup::onToggleView));
             m_viewBtn->setID("guided-settings-button"_spr);
             m_buttonMenu->addChildAtPosition(m_viewBtn, Anchor::Bottom, ccp(0.f, 20.f));
 
-            auto clearSpr = ButtonSprite::create("Clear Stats", 86, 0, 0.38f, true, "goldFont.fnt", "GJ_button_06.png", 24.f);
-            m_clearBtn = CCMenuItemSpriteExtra::create(clearSpr, this, menu_selector(LearnerStatsPopup::onClearStats));
-            m_clearBtn->setID("clear-stats-button"_spr);
-            m_buttonMenu->addChildAtPosition(m_clearBtn, Anchor::Bottom, ccp(105.f, 20.f));
-
-            auto resetSpr = ButtonSprite::create("Reset Guide", 86, 0, 0.36f, true, "goldFont.fnt", "GJ_button_06.png", 24.f);
-            m_resetGuidedBtn = CCMenuItemSpriteExtra::create(resetSpr, this, menu_selector(LearnerStatsPopup::onResetGuided));
-            m_resetGuidedBtn->setID("reset-guided-button"_spr);
-            m_resetGuidedBtn->setVisible(false);
-            m_buttonMenu->addChildAtPosition(m_resetGuidedBtn, Anchor::Bottom, ccp(105.f, 20.f));
+            auto smartSpr = createSmartButtonSprite();
+            m_smartStartposBtn = CCMenuItemSpriteExtra::create(smartSpr, this, menu_selector(LearnerStatsPopup::onToggleSmartStartpos));
+            m_smartStartposBtn->setID("smart-startpos-button"_spr);
+            m_buttonMenu->addChildAtPosition(m_smartStartposBtn, Anchor::Bottom, ccp(110.f, 20.f));
 
             return true;
         }
@@ -78,13 +70,27 @@ namespace {
 
         ButtonSprite* createViewButtonSprite() {
             return ButtonSprite::create(
-                m_showingSettings ? "Stats" : "Settings",
+                m_showingSettings ? "Guide" : "Settings",
                 84,
                 0,
                 0.38f,
                 true,
                 "goldFont.fnt",
                 "GJ_button_02.png",
+                24.f
+            );
+        }
+
+        ButtonSprite* createSmartButtonSprite() {
+            auto enabled = ModManager::sharedState()->m_smartStartpos;
+            return ButtonSprite::create(
+                enabled ? "Smart: ON" : "Smart: OFF",
+                100,
+                0,
+                0.38f,
+                true,
+                "goldFont.fnt",
+                enabled ? "GJ_button_01.png" : "GJ_button_04.png",
                 24.f
             );
         }
@@ -119,6 +125,16 @@ namespace {
             return parseNumber(value, 50, 0, 100);
         }
 
+        void saveCurrentLevelSettings() {
+            auto mm = ModManager::sharedState();
+            if (auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get())) {
+                mm->saveLevelSettings(playLayer->getLearnerSaveKey());
+                return;
+            }
+
+            mm->saveLevelSettings();
+        }
+
         void removeSettingsControls() {
             if (m_settingsControls) {
                 m_settingsControls->removeFromParentAndCleanup(true);
@@ -139,7 +155,7 @@ namespace {
 
             auto displayRows = rows;
             if (displayRows.empty()) {
-                displayRows.emplace_back("No runs yet", 0.42f);
+                displayRows.emplace_back("No level loaded", 0.42f);
             }
 
             auto scroll = ScrollLayer::create({290.f, 118.f});
@@ -171,7 +187,6 @@ namespace {
 
             auto rows = std::vector<std::pair<std::string, float>>();
             if (playLayer) {
-                auto& bestRunEndPercents = playLayer->m_fields->m_bestRunEndPercents;
                 rows.emplace_back(fmt::format(
                     "Phase: {}/{}",
                     playLayer->getGuidedPhaseIndex(),
@@ -193,59 +208,6 @@ namespace {
                     playLayer->getLearnerStartPercent(playLayer->m_fields->m_guidedWindowStart),
                     playLayer->getGuidedRunTargetPercent()
                 ), 0.36f);
-                rows.emplace_back("", 0.18f);
-
-                rows.emplace_back("Best Runs", 0.5f);
-                for (auto idx = 0u; idx < bestRunEndPercents.size(); idx++) {
-                    rows.emplace_back(fmt::format(
-                        "{}%-{}%",
-                        playLayer->getLearnerStartPercent(idx),
-                        bestRunEndPercents[idx]
-                    ), 0.42f);
-                }
-
-                rows.emplace_back("", 0.18f);
-                rows.emplace_back("Ranking", 0.5f);
-
-                auto ranking = std::vector<size_t>();
-                for (auto idx = 0u; idx < playLayer->m_fields->m_sectionAttempts.size(); idx++) {
-                    ranking.push_back(idx);
-                }
-
-                std::sort(ranking.begin(), ranking.end(), [playLayer](auto a, auto b) {
-                    auto attemptsA = playLayer->getLearnerAdjustedAttempts(a);
-                    auto attemptsB = playLayer->getLearnerAdjustedAttempts(b);
-                    auto clearsA = playLayer->m_fields->m_sectionClears[a];
-                    auto clearsB = playLayer->m_fields->m_sectionClears[b];
-                    auto totalA = clearsA + attemptsA;
-                    auto totalB = clearsB + attemptsB;
-                    auto rateA = totalA > 0 ? static_cast<float>(clearsA) / totalA : 2.f;
-                    auto rateB = totalB > 0 ? static_cast<float>(clearsB) / totalB : 2.f;
-
-                    if (rateA != rateB) {
-                        return rateA < rateB;
-                    }
-                    return playLayer->getLearnerStartPercent(a) < playLayer->getLearnerStartPercent(b);
-                });
-
-                for (auto rank = 0u; rank < ranking.size(); rank++) {
-                    auto idx = ranking[rank];
-                    auto attempts = playLayer->getLearnerAdjustedAttempts(idx);
-                    auto clears = playLayer->m_fields->m_sectionClears[idx];
-                    auto total = clears + attempts;
-                    auto rate = total > 0 ?
-                        fmt::format("{}%", static_cast<int>(std::round(static_cast<float>(clears) / total * 100.f))) :
-                        std::string("--%");
-                    rows.emplace_back(fmt::format(
-                        "{}. {}%-{}%  {}/{}  {}",
-                        rank + 1,
-                        playLayer->getLearnerStartPercent(idx),
-                        playLayer->getLearnerClearTargetPercent(idx),
-                        clears,
-                        total,
-                        rate
-                    ), 0.36f);
-                }
             }
 
             buildRows(rows);
@@ -275,7 +237,7 @@ namespace {
             m_lateThresholdInput->setCallback([this](std::string const& value) {
                 auto mm = ModManager::sharedState();
                 mm->m_guidedLateThreshold = parsePercent(value);
-                Mod::get()->setSavedValue("guided-late-threshold", mm->m_guidedLateThreshold);
+                saveCurrentLevelSettings();
                 if (auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get())) {
                     playLayer->normalizeGuidedRoute();
                     playLayer->saveGuidedProgress();
@@ -299,7 +261,7 @@ namespace {
             m_attemptLimitInput->setCallback([this](std::string const& value) {
                 auto mm = ModManager::sharedState();
                 mm->m_guidedAttemptLimit = parseNumber(value, 20, 1, 999);
-                Mod::get()->setSavedValue("guided-attempt-limit", mm->m_guidedAttemptLimit);
+                saveCurrentLevelSettings();
             });
             controls->addChild(m_attemptLimitInput);
 
@@ -374,17 +336,10 @@ namespace {
             buildSettingsControls();
         }
 
-        void onClearStats(CCObject*) {
-            if (auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get())) {
-                playLayer->clearLearnerStats();
-            }
-            refreshCurrentView();
-        }
-
         void onToggleGuided(CCObject*) {
             auto mm = ModManager::sharedState();
             mm->m_guidedMode = !mm->m_guidedMode;
-            Mod::get()->setSavedValue("guided-mode", mm->m_guidedMode);
+            saveCurrentLevelSettings();
 
             if (m_guidedBtn) {
                 m_guidedBtn->setSprite(createGuidedButtonSprite());
@@ -400,12 +355,6 @@ namespace {
             if (m_viewBtn) {
                 m_viewBtn->setSprite(createViewButtonSprite());
             }
-            if (m_clearBtn) {
-                m_clearBtn->setVisible(!m_showingSettings);
-            }
-            if (m_resetGuidedBtn) {
-                m_resetGuidedBtn->setVisible(m_showingSettings);
-            }
             refreshCurrentView();
         }
 
@@ -417,10 +366,22 @@ namespace {
             }
         }
 
+        void onToggleSmartStartpos(CCObject*) {
+            auto mm = ModManager::sharedState();
+            mm->m_smartStartpos = !mm->m_smartStartpos;
+            saveCurrentLevelSettings();
+            if (m_smartStartposBtn) {
+                m_smartStartposBtn->setSprite(createSmartButtonSprite());
+            }
+            if (auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get())) {
+                playLayer->updateSmartStartPositions();
+            }
+        }
+
         void onToggleSwitcher(CCObject*) {
             auto mm = ModManager::sharedState();
             mm->m_showStartposSwitcher = !mm->m_showStartposSwitcher;
-            Mod::get()->setSavedValue("show-startpos-switcher", mm->m_showStartposSwitcher);
+            saveCurrentLevelSettings();
             if (m_switcherToggleBtn) {
                 m_switcherToggleBtn->setSprite(createToggleSprite(mm->m_showStartposSwitcher));
             }
@@ -430,19 +391,11 @@ namespace {
         void onTogglePercent(CCObject*) {
             auto mm = ModManager::sharedState();
             mm->m_showGuidedPercent = !mm->m_showGuidedPercent;
-            Mod::get()->setSavedValue("show-guided-percent", mm->m_showGuidedPercent);
+            saveCurrentLevelSettings();
             if (m_percentToggleBtn) {
                 m_percentToggleBtn->setSprite(createToggleSprite(mm->m_showGuidedPercent));
             }
             refreshPlayLayerUI();
-        }
-
-        void onResetGuided(CCObject*) {
-            if (auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get())) {
-                playLayer->resetGuidedProgress();
-                playLayer->applyGuidedStartPos();
-            }
-            refreshCurrentView();
         }
 
         void refreshCurrentView() {
@@ -468,24 +421,64 @@ namespace {
 }
 
 class $modify(HookPauseLayer, PauseLayer) {
+    struct LeftStackAnchor {
+        CCPoint m_worldPosition = {0.f, 0.f};
+        bool m_found = false;
+    };
+
     void customSetup() {
         PauseLayer::customSetup();
-
-        auto director = CCDirector::sharedDirector();
-        auto menu = CCMenu::create();
-        menu->setID("learner-stats-menu"_spr);
-        menu->setPosition({0.f, 0.f});
 
         auto sprite = ButtonSprite::create("Stats", 54, 0, 0.55f, true, "goldFont.fnt", "GJ_button_01.png", 28.f);
         auto button = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(HookPauseLayer::onLearnerStats));
         button->setID("learner-stats-button"_spr);
-        button->setPosition({
-            director->getScreenLeft() + 35.f,
-            director->getScreenTop() - 24.f
-        });
 
+        auto anchor = findLeftStackAnchor(this);
+        auto director = CCDirector::sharedDirector();
+        auto menu = CCMenu::create();
+        menu->setID("learner-stats-menu"_spr);
+        menu->setPosition({0.f, 0.f});
+        button->setPosition(anchor.m_found ?
+            ccp(anchor.m_worldPosition.x, anchor.m_worldPosition.y - 70.f) :
+            ccp(director->getScreenLeft() + 35.f, director->getScreenTop() - 24.f)
+        );
         menu->addChild(button);
         this->addChild(menu, 10);
+    }
+
+    LeftStackAnchor findLeftStackAnchor(CCNode* root) {
+        auto director = CCDirector::sharedDirector();
+        auto screenLeft = director->getScreenLeft();
+        auto screenTop = director->getScreenTop();
+        auto anchor = LeftStackAnchor();
+        findLeftStackAnchorRecursive(root, anchor, screenLeft, screenTop);
+        return anchor;
+    }
+
+    void findLeftStackAnchorRecursive(CCNode* node, LeftStackAnchor& anchor, float screenLeft, float screenTop) {
+        if (!node) {
+            return;
+        }
+
+        if (auto button = typeinfo_cast<CCMenuItemSpriteExtra*>(node)) {
+            if (button->isVisible() && button->getID() != "learner-stats-button"_spr) {
+                auto parent = button->getParent();
+                auto parentMenu = typeinfo_cast<CCMenu*>(parent);
+                if (parentMenu) {
+                    auto worldPosition = parent->convertToWorldSpace(button->getPosition());
+                    auto onLeft = worldPosition.x >= screenLeft && worldPosition.x <= screenLeft + 95.f;
+                    auto inTopStack = worldPosition.y <= screenTop - 8.f && worldPosition.y >= screenTop - 225.f;
+                    if (onLeft && inTopStack && (!anchor.m_found || worldPosition.y < anchor.m_worldPosition.y)) {
+                        anchor.m_worldPosition = worldPosition;
+                        anchor.m_found = true;
+                    }
+                }
+            }
+        }
+
+        for (auto child : node->getChildrenExt<CCNode*>()) {
+            findLeftStackAnchorRecursive(child, anchor, screenLeft, screenTop);
+        }
     }
 
     void onLearnerStats(CCObject*) {

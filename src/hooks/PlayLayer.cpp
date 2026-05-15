@@ -30,9 +30,40 @@ namespace {
 }
 
 void HookPlayLayer::addObject(GameObject* obj) {
+    auto fields = m_fields.self();
     if (obj->m_objectID == 31) {
         if(!static_cast<StartPosObject*>(obj)->m_startSettings->m_disableStartPos || !ModManager::sharedState()->m_ignoreDisabled)
-            m_fields->m_startPosObjects.push_back(obj);
+            fields->m_startPosObjects.push_back(obj);
+    }
+
+    switch (obj->m_objectID) {
+        case 12:
+        case 13:
+        case 47:
+        case 111:
+        case 660:
+        case 745:
+        case 1331:
+        case 1933:
+            fields->m_gamemodePortals.push_back(obj);
+            break;
+        case 99:
+        case 101:
+            fields->m_miniPortals.push_back(obj);
+            break;
+        case 200:
+        case 201:
+        case 202:
+        case 203:
+        case 1334:
+            fields->m_speedChanges.push_back(obj);
+            break;
+        case 286:
+        case 287:
+            fields->m_dualPortals.push_back(obj);
+            break;
+        default:
+            break;
     }
     PlayLayer::addObject(obj);
 }
@@ -70,7 +101,9 @@ void HookPlayLayer::setLearnerStartPos(int idx, bool shouldReset) {
         auto rand = std::rand() % fields->m_startPosObjects.size() + 1;
         object = idx > 0 ? fields->m_startPosObjects[rand] : nullptr;
     }
-    setStartPosObject(static_cast<StartPosObject*>(object));
+    auto startPos = static_cast<StartPosObject*>(object);
+    applySmartStartPos(startPos);
+    setStartPosObject(startPos);
 
     if (!shouldReset) {
         static_cast<HookUILayer*>(m_uiLayer)->updateUI();
@@ -124,6 +157,112 @@ void HookPlayLayer::queueLearnerStartPosMusicSync() {
     scheduleOnce(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed), 0.05f);
 }
 
+GameObject* HookPlayLayer::getClosestSmartObject(std::vector<geode::Ref<GameObject>>& objects, StartPosObject* startPos) {
+    if (!startPos) {
+        return nullptr;
+    }
+
+    std::sort(objects.begin(), objects.end(), [](auto a, auto b) {
+        return a->getPositionX() < b->getPositionX();
+    });
+
+    auto closest = static_cast<GameObject*>(nullptr);
+    for (auto object : objects) {
+        if (object->getPositionX() - 10.f > startPos->getPositionX()) {
+            break;
+        }
+        if (object->getPositionX() - 10.f < startPos->getPositionX()) {
+            closest = object;
+        }
+    }
+    return closest;
+}
+
+void HookPlayLayer::applySmartStartPos(StartPosObject* startPos) {
+    auto mm = ModManager::sharedState();
+    if (!mm->m_smartStartpos || !startPos || !startPos->m_startSettings || !m_levelSettings) {
+        return;
+    }
+
+    auto fields = m_fields.self();
+    auto startSettings = startPos->m_startSettings;
+    startSettings->m_startDual = m_levelSettings->m_startDual;
+    startSettings->m_startMode = m_levelSettings->m_startMode;
+    startSettings->m_startMini = m_levelSettings->m_startMini;
+    startSettings->m_startSpeed = m_levelSettings->m_startSpeed;
+
+    if (auto object = getClosestSmartObject(fields->m_dualPortals, startPos)) {
+        startSettings->m_startDual = object->m_objectID == 286;
+    }
+
+    if (auto object = getClosestSmartObject(fields->m_gamemodePortals, startPos)) {
+        switch (object->m_objectID) {
+            case 12:
+                startSettings->m_startMode = 0;
+                break;
+            case 13:
+                startSettings->m_startMode = 1;
+                break;
+            case 47:
+                startSettings->m_startMode = 2;
+                break;
+            case 111:
+                startSettings->m_startMode = 3;
+                break;
+            case 660:
+                startSettings->m_startMode = 4;
+                break;
+            case 745:
+                startSettings->m_startMode = 5;
+                break;
+            case 1331:
+                startSettings->m_startMode = 6;
+                break;
+            case 1933:
+                startSettings->m_startMode = 7;
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (auto object = getClosestSmartObject(fields->m_miniPortals, startPos)) {
+        startSettings->m_startMini = object->m_objectID == 101;
+    }
+
+    if (auto object = getClosestSmartObject(fields->m_speedChanges, startPos)) {
+        switch (object->m_objectID) {
+            case 200:
+                startSettings->m_startSpeed = Speed::Slow;
+                break;
+            case 201:
+                startSettings->m_startSpeed = Speed::Normal;
+                break;
+            case 202:
+                startSettings->m_startSpeed = Speed::Fast;
+                break;
+            case 203:
+                startSettings->m_startSpeed = Speed::Faster;
+                break;
+            case 1334:
+                startSettings->m_startSpeed = Speed::Fastest;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void HookPlayLayer::updateSmartStartPositions() {
+    if (!ModManager::sharedState()->m_smartStartpos) {
+        return;
+    }
+
+    for (auto object : m_fields->m_startPosObjects) {
+        applySmartStartPos(static_cast<StartPosObject*>(object.data()));
+    }
+}
+
 void HookPlayLayer::createObjectsFromSetupFinished() {
     PlayLayer::createObjectsFromSetupFinished();
     auto fields = m_fields.self();
@@ -135,7 +274,9 @@ void HookPlayLayer::createObjectsFromSetupFinished() {
         fields->m_startPosIdx = currentIdx + 1;
     }
 
-    loadLearnerRuns();
+    ModManager::sharedState()->loadLevelSettings(getLearnerSaveKey());
+    updateSmartStartPositions();
+    loadGuidedProgress();
     applyGuidedStartPos(false);
     beginLearnerRun();
 
@@ -147,6 +288,7 @@ void HookPlayLayer::resetLevel() {
         m_fields->m_guidedStartPosPending = false;
         applyGuidedStartPos(false);
     }
+    updateSmartStartPositions();
     PlayLayer::resetLevel();
     if (m_startPosObject) {
         prepareMusic(false);
@@ -160,17 +302,14 @@ void HookPlayLayer::resetLevel() {
 
 void HookPlayLayer::updateProgressbar() {
     PlayLayer::updateProgressbar();
-    recordLearnerProgress();
     updateGuidedProgress();
     static_cast<HookUILayer*>(m_uiLayer)->updateGuidedChanceLabel();
 }
 
 void HookPlayLayer::destroyPlayer(PlayerObject* player, GameObject* object) {
-    recordLearnerProgress();
     auto guidedAlreadyCleared = m_fields->m_guidedRunCleared;
     auto guidedCleared = updateGuidedProgress();
     if (!guidedAlreadyCleared && !guidedCleared) {
-        recordLearnerDeathAttempt();
         if (!m_fields->m_activeRunAttemptCounted) {
             m_fields->m_activeRunAttemptCounted = true;
             recordGuidedRouteAttempt();
@@ -180,7 +319,6 @@ void HookPlayLayer::destroyPlayer(PlayerObject* player, GameObject* object) {
 }
 
 void HookPlayLayer::levelComplete() {
-    recordLearnerProgress(true);
     auto guidedCleared = updateGuidedProgress(true);
     (void)guidedCleared;
     PlayLayer::levelComplete();
@@ -189,120 +327,10 @@ void HookPlayLayer::levelComplete() {
 void HookPlayLayer::beginLearnerRun() {
     auto fields = m_fields.self();
     fields->m_activeRunStartIdx = fields->m_startPosIdx;
-    fields->m_activeRunCleared = false;
     fields->m_activeRunAttemptCounted = false;
-    fields->m_activeRunGuidedQueued = false;
     fields->m_guidedRunCleared = false;
     fields->m_ignoreProgressUntilRunBegin = false;
-
-    auto sectionCount = fields->m_startPosObjects.size() + 1;
-    if (
-        fields->m_bestRunEndPercents.size() != sectionCount ||
-        fields->m_sectionAttempts.size() != sectionCount ||
-        fields->m_sectionClears.size() != sectionCount ||
-        fields->m_sectionAttemptDiscounts.size() != sectionCount
-    ) {
-        loadLearnerRuns();
-    }
-    fields->m_activeRunClearedSections.assign(sectionCount, false);
-    fields->m_activeRunDeathCountedSections.assign(sectionCount, false);
     normalizeGuidedRoute();
-
-    recordLearnerProgress();
-}
-
-void HookPlayLayer::recordLearnerProgress(bool completed) {
-    auto fields = m_fields.self();
-    if (fields->m_ignoreProgressUntilRunBegin) {
-        return;
-    }
-
-    auto idx = fields->m_activeRunStartIdx;
-    if (idx < 0 || idx >= fields->m_bestRunEndPercents.size()) {
-        return;
-    }
-
-    auto percent = completed ? 100 : percentFromX(m_player1 ? m_player1->getPositionX() : 0.f, m_levelLength);
-    percent = std::max(percent, getLearnerStartPercent(idx));
-    auto changed = false;
-
-    if (percent > fields->m_bestRunEndPercents[idx]) {
-        fields->m_bestRunEndPercents[idx] = percent;
-        changed = true;
-    }
-
-    for (auto section = idx; section < fields->m_bestRunEndPercents.size(); section++) {
-        if (percent >= getLearnerClearTargetPercent(section)) {
-            recordLearnerSectionClear(section);
-            changed = true;
-        }
-    }
-
-    if (changed) {
-        saveLearnerRuns();
-    }
-}
-
-void HookPlayLayer::recordLearnerSectionClear(int index) {
-    auto fields = m_fields.self();
-    if (index < 0 || index >= fields->m_sectionClears.size()) {
-        return;
-    }
-
-    if (fields->m_activeRunClearedSections.size() != fields->m_sectionClears.size()) {
-        fields->m_activeRunClearedSections.assign(fields->m_sectionClears.size(), false);
-    }
-    if (fields->m_activeRunClearedSections[index]) {
-        return;
-    }
-
-    fields->m_activeRunClearedSections[index] = true;
-    fields->m_sectionClears[index]++;
-
-    if (index == fields->m_activeRunStartIdx) {
-        fields->m_activeRunCleared = true;
-        return;
-    }
-
-    fields->m_sectionAttemptDiscounts[index]++;
-}
-
-void HookPlayLayer::recordLearnerDeathAttempt() {
-    auto fields = m_fields.self();
-    if (fields->m_ignoreProgressUntilRunBegin) {
-        return;
-    }
-
-    if (fields->m_sectionAttempts.empty()) {
-        return;
-    }
-
-    auto percent = percentFromX(m_player1 ? m_player1->getPositionX() : 0.f, m_levelLength);
-    auto section = fields->m_activeRunStartIdx;
-    for (auto idx = fields->m_activeRunStartIdx; idx < fields->m_sectionAttempts.size(); idx++) {
-        if (percent < getLearnerClearTargetPercent(idx)) {
-            section = idx;
-            break;
-        }
-    }
-
-    if (section < 0 || section >= fields->m_sectionAttempts.size()) {
-        return;
-    }
-    if (fields->m_sectionClears[section] <= 0) {
-        return;
-    }
-
-    if (fields->m_activeRunDeathCountedSections.size() != fields->m_sectionAttempts.size()) {
-        fields->m_activeRunDeathCountedSections.assign(fields->m_sectionAttempts.size(), false);
-    }
-    if (fields->m_activeRunDeathCountedSections[section]) {
-        return;
-    }
-
-    fields->m_activeRunDeathCountedSections[section] = true;
-    fields->m_sectionAttempts[section]++;
-    saveLearnerRuns();
 }
 
 int HookPlayLayer::getLearnerStartPercent(int index) {
@@ -327,28 +355,6 @@ int HookPlayLayer::getLearnerClearTargetPercent(int index) {
     }
 
     return 100;
-}
-
-int HookPlayLayer::getLearnerAdjustedAttempts(int index) {
-    auto fields = m_fields.self();
-    if (index < 0 || index >= fields->m_sectionAttempts.size()) {
-        return 0;
-    }
-
-    auto discounts = index < fields->m_sectionAttemptDiscounts.size() ? fields->m_sectionAttemptDiscounts[index] : 0;
-    return std::max(0, fields->m_sectionAttempts[index] - discounts);
-}
-
-float HookPlayLayer::getLearnerClearRate(int index) {
-    auto fields = m_fields.self();
-    if (index < 0 || index >= fields->m_sectionClears.size()) {
-        return 0.f;
-    }
-
-    auto clears = fields->m_sectionClears[index];
-    auto failures = getLearnerAdjustedAttempts(index);
-    auto total = clears + failures;
-    return total > 0 ? static_cast<float>(clears) / total : 0.f;
 }
 
 void HookPlayLayer::normalizeGuidedRoute() {
@@ -821,9 +827,7 @@ bool HookPlayLayer::applyGuidedStartPos(bool shouldReset, bool resetIfSame) {
     setLearnerStartPos(target, shouldReset);
     if (!shouldReset) {
         fields->m_activeRunStartIdx = target;
-        fields->m_activeRunCleared = false;
         fields->m_activeRunAttemptCounted = false;
-        fields->m_activeRunGuidedQueued = false;
         fields->m_guidedRunCleared = false;
         fields->m_ignoreProgressUntilRunBegin = true;
     }
@@ -831,63 +835,29 @@ bool HookPlayLayer::applyGuidedStartPos(bool shouldReset, bool resetIfSame) {
     return true;
 }
 
-void HookPlayLayer::loadLearnerRuns() {
-    auto fields = m_fields.self();
-    auto sectionCount = fields->m_startPosObjects.size() + 1;
-    auto baseRuns = std::vector<int>(sectionCount, 0);
-    for (auto idx = 0u; idx < baseRuns.size(); idx++) {
-        baseRuns[idx] = getLearnerStartPercent(idx);
-    }
-
-    auto savedRuns = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey(), {});
-    for (auto idx = 0u; idx < std::min(baseRuns.size(), savedRuns.size()); idx++) {
-        baseRuns[idx] = std::max(baseRuns[idx], std::clamp(savedRuns[idx], 0, 100));
-    }
-
-    fields->m_bestRunEndPercents = baseRuns;
-
-    auto savedAttempts = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":attempts", {});
-    auto savedClears = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":clears", {});
-    auto savedDiscounts = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":discounts", {});
-    if (savedClears.empty()) {
-        savedClears = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":passes", {});
-    }
-    fields->m_sectionAttempts.assign(sectionCount, 0);
-    fields->m_sectionClears.assign(sectionCount, 0);
-    fields->m_sectionAttemptDiscounts.assign(sectionCount, 0);
-    fields->m_activeRunClearedSections.assign(sectionCount, false);
-    fields->m_activeRunDeathCountedSections.assign(sectionCount, false);
-
-    for (auto idx = 0u; idx < std::min(fields->m_sectionAttempts.size(), savedAttempts.size()); idx++) {
-        fields->m_sectionAttempts[idx] = std::max(savedAttempts[idx], 0);
-    }
-    for (auto idx = 0u; idx < std::min(fields->m_sectionClears.size(), savedClears.size()); idx++) {
-        fields->m_sectionClears[idx] = std::clamp(savedClears[idx], 0, fields->m_sectionAttempts[idx]);
-    }
-    for (auto idx = 0u; idx < std::min(fields->m_sectionAttemptDiscounts.size(), savedDiscounts.size()); idx++) {
-        fields->m_sectionAttemptDiscounts[idx] = std::max(savedDiscounts[idx], 0);
-    }
-
-    loadGuidedProgress();
-}
-
-void HookPlayLayer::saveLearnerRuns() {
-    Mod::get()->setSavedValue(getLearnerSaveKey(), m_fields->m_bestRunEndPercents);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":attempts", m_fields->m_sectionAttempts);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":clears", m_fields->m_sectionClears);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":discounts", m_fields->m_sectionAttemptDiscounts);
-}
-
 void HookPlayLayer::loadGuidedProgress() {
     auto fields = m_fields.self();
     auto sectionCount = static_cast<int>(fields->m_startPosObjects.size() + 1);
     auto defaultStart = std::max(0, sectionCount - 1);
+    auto mm = ModManager::sharedState();
+    auto key = getLearnerSaveKey();
 
-    fields->m_guidedChainLength = Mod::get()->getSavedValue<int>(getLearnerSaveKey() + ":guided-chain", 1);
-    fields->m_guidedWindowStart = Mod::get()->getSavedValue<int>(getLearnerSaveKey() + ":guided-start", defaultStart);
-    fields->m_guidedCompletedRoutes = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":guided-completed", {});
-    fields->m_guidedAttemptRouteIDs = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":guided-attempt-ids", {});
-    fields->m_guidedAttemptRouteCounts = Mod::get()->getSavedValue<std::vector<int>>(getLearnerSaveKey() + ":guided-attempt-counts", {});
+    auto it = mm->m_sessionGuidedProgress.find(key);
+    if (it == mm->m_sessionGuidedProgress.end()) {
+        fields->m_guidedChainLength = 1;
+        fields->m_guidedWindowStart = defaultStart;
+        fields->m_guidedCompletedRoutes.clear();
+        fields->m_guidedAttemptRouteIDs.clear();
+        fields->m_guidedAttemptRouteCounts.clear();
+    } else {
+        auto const& progress = it->second;
+        fields->m_guidedChainLength = progress.m_chainLength;
+        fields->m_guidedWindowStart = progress.m_windowStart;
+        fields->m_guidedCompletedRoutes = progress.m_completedRoutes;
+        fields->m_guidedAttemptRouteIDs = progress.m_attemptRouteIDs;
+        fields->m_guidedAttemptRouteCounts = progress.m_attemptRouteCounts;
+    }
+
     cleanGuidedRouteData();
     normalizeGuidedRoute();
 }
@@ -895,57 +865,25 @@ void HookPlayLayer::loadGuidedProgress() {
 void HookPlayLayer::saveGuidedProgress() {
     cleanGuidedRouteData();
     normalizeGuidedRoute();
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":guided-chain", m_fields->m_guidedChainLength);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":guided-start", m_fields->m_guidedWindowStart);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":guided-completed", m_fields->m_guidedCompletedRoutes);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":guided-attempt-ids", m_fields->m_guidedAttemptRouteIDs);
-    Mod::get()->setSavedValue(getLearnerSaveKey() + ":guided-attempt-counts", m_fields->m_guidedAttemptRouteCounts);
-}
-
-void HookPlayLayer::resetGuidedProgress() {
-    auto fields = m_fields.self();
-    auto sectionCount = static_cast<int>(fields->m_startPosObjects.size() + 1);
-    fields->m_guidedChainLength = 1;
-    fields->m_guidedWindowStart = std::max(0, sectionCount - 1);
-    fields->m_guidedCompletedRoutes.clear();
-    fields->m_guidedAttemptRouteIDs.clear();
-    fields->m_guidedAttemptRouteCounts.clear();
-    fields->m_guidedRunCleared = false;
-    fields->m_guidedStartPosPending = false;
-    saveGuidedProgress();
-}
-
-void HookPlayLayer::clearLearnerStats() {
-    auto fields = m_fields.self();
-    auto sectionCount = fields->m_startPosObjects.size() + 1;
-
-    fields->m_bestRunEndPercents.assign(sectionCount, 0);
-    for (auto idx = 0u; idx < fields->m_bestRunEndPercents.size(); idx++) {
-        fields->m_bestRunEndPercents[idx] = getLearnerStartPercent(idx);
-    }
-
-    fields->m_sectionAttempts.assign(sectionCount, 0);
-    fields->m_sectionClears.assign(sectionCount, 0);
-    fields->m_sectionAttemptDiscounts.assign(sectionCount, 0);
-    fields->m_activeRunClearedSections.assign(sectionCount, false);
-    fields->m_activeRunDeathCountedSections.assign(sectionCount, false);
-    fields->m_activeRunCleared = false;
-    fields->m_activeRunAttemptCounted = false;
-    saveLearnerRuns();
-    resetGuidedProgress();
+    auto& progress = ModManager::sharedState()->m_sessionGuidedProgress[getLearnerSaveKey()];
+    progress.m_chainLength = m_fields->m_guidedChainLength;
+    progress.m_windowStart = m_fields->m_guidedWindowStart;
+    progress.m_completedRoutes = m_fields->m_guidedCompletedRoutes;
+    progress.m_attemptRouteIDs = m_fields->m_guidedAttemptRouteIDs;
+    progress.m_attemptRouteCounts = m_fields->m_guidedAttemptRouteCounts;
 }
 
 std::string HookPlayLayer::getLearnerSaveKey() {
     if (!m_level) {
-        return "best-runs:unknown";
+        return "learner:unknown";
     }
 
     auto levelID = static_cast<int>(m_level->m_levelID);
     if (levelID > 0) {
-        return fmt::format("best-runs:id:{}", levelID);
+        return fmt::format("learner:id:{}", levelID);
     }
 
     auto levelName = std::string(m_level->m_levelName);
     auto levelString = std::string(m_level->m_levelString);
-    return fmt::format("best-runs:local:{}", stableHash(levelName + ":" + levelString));
+    return fmt::format("learner:local:{}", stableHash(levelName + ":" + levelString));
 }
