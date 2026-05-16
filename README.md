@@ -1,6 +1,6 @@
-# Learner
+# LearnR
 
-Learner is a geometry dash for optimized learning of levels, having features that encourage spaced repetition, learning the level backwards, and progressively increasing run lengths. This is done through a startposition copy of a level, and with a guided mode that will guide the player to different startpositions based on their progress from previous ones.
+LearnR is a geometry dash for optimized learning of levels, having features that encourage spaced repetition, learning the level backwards, and progressively increasing run lengths. This is done through a startposition copy of a level, and with a guided mode that will guide the player to different startpositions based on their progress from previous ones.
 
 Features:
 - Switch start positions with keybinds or on-screen arrows during Geometry Dash practice.

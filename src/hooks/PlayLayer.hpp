@@ -35,16 +35,16 @@ struct HookPlayLayer : geode::Modify<HookPlayLayer, PlayLayer> {
     void updateProgressbar();
 
     void updateStartPos(int index);
-    void setLearnerStartPos(int index, bool shouldReset);
-    void syncLearnerStartPosMusic();
-    void syncLearnerStartPosMusicDelayed(float);
-    void queueLearnerStartPosMusicSync();
+    void setLearnRStartPos(int index, bool shouldReset);
+    void syncLearnRStartPosMusic();
+    void syncLearnRStartPosMusicDelayed(float);
+    void queueLearnRStartPosMusicSync();
     void updateSmartStartPositions();
     void applySmartStartPos(StartPosObject* startPos);
     GameObject* getClosestSmartObject(std::vector<geode::Ref<GameObject>>& objects, StartPosObject* startPos);
-    void beginLearnerRun();
-    int getLearnerStartPercent(int index);
-    int getLearnerClearTargetPercent(int index);
+    void beginLearnRRun();
+    int getLearnRStartPercent(int index);
+    int getLearnRClearTargetPercent(int index);
     void normalizeGuidedRoute();
     int getGuidedRouteLength(int startIndex, int phase);
     bool isGuidedRoutePlayable(int startIndex, int phase);
@@ -75,5 +75,5 @@ struct HookPlayLayer : geode::Modify<HookPlayLayer, PlayLayer> {
     bool applyGuidedStartPos(bool shouldReset = true, bool resetIfSame = false);
     void loadGuidedProgress();
     void saveGuidedProgress();
-    std::string getLearnerSaveKey();
+    std::string getLearnRSaveKey();
 };

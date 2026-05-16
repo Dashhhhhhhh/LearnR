@@ -5,4 +5,4 @@
 
 # v1.0.0
 
-- Initial Learner release with guided practice, smart startpos, music sync, and per-level settings.
+- Initial LearnR release with guided practice, smart startpos, music sync, and per-level settings.

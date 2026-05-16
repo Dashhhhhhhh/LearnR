@@ -69,10 +69,10 @@ void HookPlayLayer::addObject(GameObject* obj) {
 }
 
 void HookPlayLayer::updateStartPos(int idx) {
-    setLearnerStartPos(idx, true);
+    setLearnRStartPos(idx, true);
 }
 
-void HookPlayLayer::setLearnerStartPos(int idx, bool shouldReset) {
+void HookPlayLayer::setLearnRStartPos(int idx, bool shouldReset) {
     auto fields = m_fields.self();
 
     if (fields->m_startPosObjects.size() == 0)
@@ -115,12 +115,12 @@ void HookPlayLayer::setLearnerStartPos(int idx, bool shouldReset) {
 
     resetLevel();
     startMusic();
-    syncLearnerStartPosMusic();
+    syncLearnRStartPosMusic();
 
     static_cast<HookUILayer*>(m_uiLayer)->updateUI();
 }
 
-void HookPlayLayer::syncLearnerStartPosMusic() {
+void HookPlayLayer::syncLearnRStartPosMusic() {
     if (!m_startPosObject || !m_startPosObject->m_startSettings) {
         return;
     }
@@ -143,18 +143,18 @@ void HookPlayLayer::syncLearnerStartPosMusic() {
     FMODAudioEngine::get()->setMusicTimeMS(songTimeMS, true, 0);
 }
 
-void HookPlayLayer::syncLearnerStartPosMusicDelayed(float) {
-    syncLearnerStartPosMusic();
+void HookPlayLayer::syncLearnRStartPosMusicDelayed(float) {
+    syncLearnRStartPosMusic();
 }
 
-void HookPlayLayer::queueLearnerStartPosMusicSync() {
+void HookPlayLayer::queueLearnRStartPosMusicSync() {
     if (!m_startPosObject) {
         return;
     }
 
-    syncLearnerStartPosMusic();
-    unschedule(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed));
-    scheduleOnce(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed), 0.05f);
+    syncLearnRStartPosMusic();
+    unschedule(schedule_selector(HookPlayLayer::syncLearnRStartPosMusicDelayed));
+    scheduleOnce(schedule_selector(HookPlayLayer::syncLearnRStartPosMusicDelayed), 0.05f);
 }
 
 GameObject* HookPlayLayer::getClosestSmartObject(std::vector<geode::Ref<GameObject>>& objects, StartPosObject* startPos) {
@@ -274,11 +274,11 @@ void HookPlayLayer::createObjectsFromSetupFinished() {
         fields->m_startPosIdx = currentIdx + 1;
     }
 
-    ModManager::sharedState()->loadLevelSettings(getLearnerSaveKey());
+    ModManager::sharedState()->loadLevelSettings(getLearnRSaveKey());
     updateSmartStartPositions();
     loadGuidedProgress();
     applyGuidedStartPos(false);
-    beginLearnerRun();
+    beginLearnRRun();
 
     static_cast<HookUILayer*>(m_uiLayer)->updateUI();
 }
@@ -293,11 +293,11 @@ void HookPlayLayer::resetLevel() {
     if (m_startPosObject) {
         prepareMusic(false);
         startMusic();
-        queueLearnerStartPosMusicSync();
+        queueLearnRStartPosMusicSync();
     } else {
-        unschedule(schedule_selector(HookPlayLayer::syncLearnerStartPosMusicDelayed));
+        unschedule(schedule_selector(HookPlayLayer::syncLearnRStartPosMusicDelayed));
     }
-    beginLearnerRun();
+    beginLearnRRun();
 }
 
 void HookPlayLayer::updateProgressbar() {
@@ -324,7 +324,7 @@ void HookPlayLayer::levelComplete() {
     PlayLayer::levelComplete();
 }
 
-void HookPlayLayer::beginLearnerRun() {
+void HookPlayLayer::beginLearnRRun() {
     auto fields = m_fields.self();
     fields->m_activeRunStartIdx = fields->m_startPosIdx;
     fields->m_activeRunAttemptCounted = false;
@@ -333,7 +333,7 @@ void HookPlayLayer::beginLearnerRun() {
     normalizeGuidedRoute();
 }
 
-int HookPlayLayer::getLearnerStartPercent(int index) {
+int HookPlayLayer::getLearnRStartPercent(int index) {
     if (index <= 0) {
         return 0;
     }
@@ -347,7 +347,7 @@ int HookPlayLayer::getLearnerStartPercent(int index) {
     return percentFromX(fields->m_startPosObjects[startPosIdx]->getPositionX(), m_levelLength);
 }
 
-int HookPlayLayer::getLearnerClearTargetPercent(int index) {
+int HookPlayLayer::getLearnRClearTargetPercent(int index) {
     auto fields = m_fields.self();
     auto nextStartPosIdx = static_cast<size_t>(index);
     if (nextStartPosIdx < fields->m_startPosObjects.size()) {
@@ -413,7 +413,7 @@ int HookPlayLayer::getGuidedRouteLength(int startIndex, int phase) {
     auto offset = 0;
     if (startIndex == 0) {
         offset = 2;
-    } else if (getLearnerStartPercent(startIndex) < ModManager::sharedState()->m_guidedLateThreshold) {
+    } else if (getLearnRStartPercent(startIndex) < ModManager::sharedState()->m_guidedLateThreshold) {
         offset = 1;
     }
 
@@ -719,7 +719,7 @@ int HookPlayLayer::getGuidedRunTargetPercent() {
     }
 
     auto endSection = fields->m_guidedWindowStart + routeLength - 1;
-    return getLearnerClearTargetPercent(endSection);
+    return getLearnRClearTargetPercent(endSection);
 }
 
 bool HookPlayLayer::updateGuidedProgress(bool completed) {
@@ -745,7 +745,7 @@ bool HookPlayLayer::updateGuidedProgress(bool completed) {
                 continue;
             }
 
-            auto target = getLearnerClearTargetPercent(start + length - 1);
+            auto target = getLearnRClearTargetPercent(start + length - 1);
             if (!completed && target >= 100) {
                 continue;
             }
@@ -824,7 +824,7 @@ bool HookPlayLayer::applyGuidedStartPos(bool shouldReset, bool resetIfSame) {
     }
 
     fields->m_guidedSwitching = true;
-    setLearnerStartPos(target, shouldReset);
+    setLearnRStartPos(target, shouldReset);
     if (!shouldReset) {
         fields->m_activeRunStartIdx = target;
         fields->m_activeRunAttemptCounted = false;
@@ -840,7 +840,7 @@ void HookPlayLayer::loadGuidedProgress() {
     auto sectionCount = static_cast<int>(fields->m_startPosObjects.size() + 1);
     auto defaultStart = std::max(0, sectionCount - 1);
     auto mm = ModManager::sharedState();
-    auto key = getLearnerSaveKey();
+    auto key = getLearnRSaveKey();
 
     auto it = mm->m_sessionGuidedProgress.find(key);
     if (it == mm->m_sessionGuidedProgress.end()) {
@@ -865,7 +865,7 @@ void HookPlayLayer::loadGuidedProgress() {
 void HookPlayLayer::saveGuidedProgress() {
     cleanGuidedRouteData();
     normalizeGuidedRoute();
-    auto& progress = ModManager::sharedState()->m_sessionGuidedProgress[getLearnerSaveKey()];
+    auto& progress = ModManager::sharedState()->m_sessionGuidedProgress[getLearnRSaveKey()];
     progress.m_chainLength = m_fields->m_guidedChainLength;
     progress.m_windowStart = m_fields->m_guidedWindowStart;
     progress.m_completedRoutes = m_fields->m_guidedCompletedRoutes;
@@ -873,17 +873,17 @@ void HookPlayLayer::saveGuidedProgress() {
     progress.m_attemptRouteCounts = m_fields->m_guidedAttemptRouteCounts;
 }
 
-std::string HookPlayLayer::getLearnerSaveKey() {
+std::string HookPlayLayer::getLearnRSaveKey() {
     if (!m_level) {
-        return "learner:unknown";
+        return "learnr:unknown";
     }
 
     auto levelID = static_cast<int>(m_level->m_levelID);
     if (levelID > 0) {
-        return fmt::format("learner:id:{}", levelID);
+        return fmt::format("learnr:id:{}", levelID);
     }
 
     auto levelName = std::string(m_level->m_levelName);
     auto levelString = std::string(m_level->m_levelString);
-    return fmt::format("learner:local:{}", stableHash(levelName + ":" + levelString));
+    return fmt::format("learnr:local:{}", stableHash(levelName + ":" + levelString));
 }

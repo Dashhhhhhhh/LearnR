@@ -14,7 +14,7 @@
 using namespace geode::prelude;
 
 namespace {
-    class LearnerStatsPopup : public Popup {
+    class LearnRStatsPopup : public Popup {
     protected:
         geode::Ref<ScrollLayer> m_statsScroll = nullptr;
         geode::Ref<CCMenuItemSpriteExtra> m_guidedBtn = nullptr;
@@ -33,21 +33,21 @@ namespace {
                 return false;
             }
 
-            this->setTitle("Learner");
+            this->setTitle("LearnR");
             buildStatsList();
 
             auto guidedSpr = createGuidedButtonSprite();
-            m_guidedBtn = CCMenuItemSpriteExtra::create(guidedSpr, this, menu_selector(LearnerStatsPopup::onToggleGuided));
+            m_guidedBtn = CCMenuItemSpriteExtra::create(guidedSpr, this, menu_selector(LearnRStatsPopup::onToggleGuided));
             m_guidedBtn->setID("guided-mode-button"_spr);
             m_buttonMenu->addChildAtPosition(m_guidedBtn, Anchor::Bottom, ccp(-110.f, 20.f));
 
             auto viewSpr = createViewButtonSprite();
-            m_viewBtn = CCMenuItemSpriteExtra::create(viewSpr, this, menu_selector(LearnerStatsPopup::onToggleView));
+            m_viewBtn = CCMenuItemSpriteExtra::create(viewSpr, this, menu_selector(LearnRStatsPopup::onToggleView));
             m_viewBtn->setID("guided-settings-button"_spr);
             m_buttonMenu->addChildAtPosition(m_viewBtn, Anchor::Bottom, ccp(0.f, 20.f));
 
             auto smartSpr = createSmartButtonSprite();
-            m_smartStartposBtn = CCMenuItemSpriteExtra::create(smartSpr, this, menu_selector(LearnerStatsPopup::onToggleSmartStartpos));
+            m_smartStartposBtn = CCMenuItemSpriteExtra::create(smartSpr, this, menu_selector(LearnRStatsPopup::onToggleSmartStartpos));
             m_smartStartposBtn->setID("smart-startpos-button"_spr);
             m_buttonMenu->addChildAtPosition(m_smartStartposBtn, Anchor::Bottom, ccp(110.f, 20.f));
 
@@ -128,7 +128,7 @@ namespace {
         void saveCurrentLevelSettings() {
             auto mm = ModManager::sharedState();
             if (auto playLayer = static_cast<HookPlayLayer*>(PlayLayer::get())) {
-                mm->saveLevelSettings(playLayer->getLearnerSaveKey());
+                mm->saveLevelSettings(playLayer->getLearnRSaveKey());
                 return;
             }
 
@@ -205,7 +205,7 @@ namespace {
                 ), 0.34f);
                 rows.emplace_back(fmt::format(
                     "Route: {}%-{}%",
-                    playLayer->getLearnerStartPercent(playLayer->m_fields->m_guidedWindowStart),
+                    playLayer->getLearnRStartPercent(playLayer->m_fields->m_guidedWindowStart),
                     playLayer->getGuidedRunTargetPercent()
                 ), 0.36f);
             }
@@ -279,7 +279,7 @@ namespace {
             m_switcherToggleBtn = CCMenuItemSpriteExtra::create(
                 createToggleSprite(mm->m_showStartposSwitcher),
                 this,
-                menu_selector(LearnerStatsPopup::onToggleSwitcher)
+                menu_selector(LearnRStatsPopup::onToggleSwitcher)
             );
             m_switcherToggleBtn->setPosition({190.f, 76.f});
             toggleMenu->addChild(m_switcherToggleBtn);
@@ -294,7 +294,7 @@ namespace {
             m_percentToggleBtn = CCMenuItemSpriteExtra::create(
                 createToggleSprite(mm->m_showGuidedPercent),
                 this,
-                menu_selector(LearnerStatsPopup::onTogglePercent)
+                menu_selector(LearnRStatsPopup::onTogglePercent)
             );
             m_percentToggleBtn->setPosition({190.f, 51.f});
             toggleMenu->addChild(m_percentToggleBtn);
@@ -407,8 +407,8 @@ namespace {
         }
 
     public:
-        static LearnerStatsPopup* create() {
-            auto ret = new LearnerStatsPopup();
+        static LearnRStatsPopup* create() {
+            auto ret = new LearnRStatsPopup();
             if (ret && ret->init()) {
                 ret->autorelease();
                 return ret;
@@ -429,14 +429,14 @@ class $modify(HookPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
 
-        auto sprite = ButtonSprite::create("Learner", 72, 0, 0.48f, true, "goldFont.fnt", "GJ_button_01.png", 28.f);
-        auto button = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(HookPauseLayer::onLearnerStats));
-        button->setID("learner-stats-button"_spr);
+        auto sprite = ButtonSprite::create("LearnR", 72, 0, 0.48f, true, "goldFont.fnt", "GJ_button_01.png", 28.f);
+        auto button = CCMenuItemSpriteExtra::create(sprite, this, menu_selector(HookPauseLayer::onLearnRStats));
+        button->setID("learnr-stats-button"_spr);
 
         auto anchor = findLeftStackAnchor(this);
         auto director = CCDirector::sharedDirector();
         auto menu = CCMenu::create();
-        menu->setID("learner-stats-menu"_spr);
+        menu->setID("learnr-stats-menu"_spr);
         menu->setPosition({0.f, 0.f});
         button->setPosition(anchor.m_found ?
             ccp(anchor.m_worldPosition.x, anchor.m_worldPosition.y - 70.f) :
@@ -461,7 +461,7 @@ class $modify(HookPauseLayer, PauseLayer) {
         }
 
         if (auto button = typeinfo_cast<CCMenuItemSpriteExtra*>(node)) {
-            if (button->isVisible() && button->getID() != "learner-stats-button"_spr) {
+            if (button->isVisible() && button->getID() != "learnr-stats-button"_spr) {
                 auto parent = button->getParent();
                 auto parentMenu = typeinfo_cast<CCMenu*>(parent);
                 if (parentMenu) {
@@ -481,7 +481,7 @@ class $modify(HookPauseLayer, PauseLayer) {
         }
     }
 
-    void onLearnerStats(CCObject*) {
-        LearnerStatsPopup::create()->show();
+    void onLearnRStats(CCObject*) {
+        LearnRStatsPopup::create()->show();
     }
 };

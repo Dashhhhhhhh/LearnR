@@ -6,17 +6,17 @@
 		"android": "2.2081",
 		"ios": "2.2081"
 	},
-	"id": "learner",
-	"name": "Learner",
+	"id": "learnr",
+	"name": "LearnR",
 	"version": "1.0.1",
-	"developer": "Learner",
+	"developer": "LearnR",
 	"description": "Structured Geometry Dash practice with guided startpos routing and smart state syncing.",
 	"links": {
-		"source": "https://github.com/Dashhhhhhhh/learner"
+		"source": "https://github.com/Dashhhhhhhh/LearnR"
 	},
 	"issues": {
 		"info": "Report bugs on GitHub Issues.",
-		"url": "https://github.com/Dashhhhhhhh/learner/issues"
+		"url": "https://github.com/Dashhhhhhhh/LearnR/issues"
 	},
 	"settings": {
         "leftSwitch": {

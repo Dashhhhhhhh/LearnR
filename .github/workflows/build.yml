@@ -53,5 +53,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: learner.geode
+          name: learnr.geode
           path: ${{ steps.build.outputs.build-output }}

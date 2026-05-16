@@ -1,6 +1,6 @@
-# Learner
+# LearnR
 
-Learner is a Geometry Dash practice tool for routing start positions, guided section training, and cleaner repeat attempts.
+LearnR is a Geometry Dash practice tool for routing start positions, guided section training, and cleaner repeat attempts.
 
 ## Features
 
