@@ -1,7 +1,8 @@
 # Learner
 
-Learner is a Geode mod for structured Geometry Dash practice.
+Learner is a geometry dash for optimized learning of levels, having features that encourage spaced repetition, learning the level backwards, and progressively increasing run lengths. This is done through a startposition copy of a level, and with a guided mode that will guide the player to different startpositions based on their progress from previous ones.
 
+Features:
 - Switch start positions with keybinds or on-screen arrows during Geometry Dash practice.
 - Guided Mode trains sections in phases, expanding from single segments into longer connected runs.
 - Smart Startpos copies nearby portal settings for accurate mode, speed, mini, and dual states.
