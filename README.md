@@ -24,16 +24,6 @@ Once installed, open a level and pause to access LearnR.
 - Track current phase, route, stage progress, and guided run counts from the pause menu.
 - Toggle optional practice overlays for startpos controls and guided zero-run chance.
 
-## Building
-
-LearnR builds like a standard Geode C++ mod. Install the Geode CLI, set `GEODE_SDK` to your local Geode SDK path, then run:
-
-```sh
-geode build
-```
-
-The project targets Geometry Dash 2.2081 through Geode 5.7.1 and uses C++23.
-
 ## Issues
 
 Bug reports and feature requests can be opened on [GitHub Issues](https://github.com/Dashhhhhhhh/LearnR/issues).
