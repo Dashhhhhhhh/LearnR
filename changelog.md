@@ -1,6 +1,6 @@
 # v1.0.3
 
-- Updated the package ID to the official Geode index namespace format.
+- Updated the package ID to the official Geode index namespace format as dash.learnr.
 - Rebuilt the package for index submission as LearnR.
 
 # v1.0.2
