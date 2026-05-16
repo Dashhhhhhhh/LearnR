@@ -2,6 +2,12 @@
 
 LearnR is a Geometry Dash practice mod for building consistent runs with guided start position routing, smart state syncing, and repeatable section training.
 
+## Downloads
+
+| Mod Version | Geode Version | GD Version | Downloads |
+| --- | --- | --- | --- |
+| [v1.0.3](https://github.com/Dashhhhhhhh/LearnR/releases/tag/v1.0.3) | 5.7.1 | 2.2081 | [Latest release](https://github.com/Dashhhhhhhh/LearnR/releases/latest) |
+
 ## Installation
 
 LearnR is a [Geode](https://geode-sdk.org/) mod, so Geometry Dash needs Geode installed first. After that, install LearnR from the in-game Geode mods page when available, or install a packaged `.geode` release manually.
